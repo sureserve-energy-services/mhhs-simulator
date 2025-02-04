@@ -1,5 +1,6 @@
 package domain
 
 type Request struct {
-	Url string
+	BaseUrl  string
+	AuthOnly bool
 }
