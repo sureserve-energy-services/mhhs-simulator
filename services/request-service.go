@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -8,6 +9,9 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"ssesuk/mhhs/simulator/domain"
 	"strings"
@@ -29,7 +33,58 @@ func NewService(request *domain.Request) *requestService {
 }
 
 func (service *requestService) ExecuteRequest() {
+	url := fmt.Sprintf("%s/requests", service.request.BaseUrl)
+	requestVerb, requestDestination := "POST", url
+	messageBody := service.getMessageBody()
+	messageBodyString := string(service.getMessageBody())
+	date := "2021-04-20T15:00:00Z"
 
+	validEncodedCertificate, err := getValidEncodedCertificate()
+
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	authenticationParameters, err := getRequestAuthenticationParameters(messageBodyString, requestVerb, requestDestination, date, validEncodedCertificate)
+
+	req, err := http.NewRequest(requestVerb, requestDestination, bytes.NewBuffer(messageBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-DIP-Signature", authenticationParameters.Signature)
+	req.Header.Set("X-DIP-Signature-Date", authenticationParameters.Date)
+	req.Header.Set("X-DIP-Certificate", authenticationParameters.Certificate)
+	req.Header.Set("X-DIP-Content-Hash", authenticationParameters.MessageHash)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	// Read and print the response
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return
+	}
+
+	fmt.Println("Response:", string(body))
+}
+
+func (service *requestService) getMessageBody() []byte {
+	var fileName string
+
+	switch service.request.RequestType {
+	case domain.BP008:
+		fileName = "change_of_supplier.json"
+	}
+
+	fileNameBytes, _ := os.ReadFile(fileName)
+
+	return fileNameBytes
 }
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
