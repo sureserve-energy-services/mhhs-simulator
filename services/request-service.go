@@ -10,7 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"ssesuk/mhhs/simulator/domain"
@@ -34,9 +34,9 @@ func NewService(request *domain.Request) *requestService {
 
 func (service *requestService) ExecuteRequest() {
 	url := fmt.Sprintf("%s/requests", service.request.BaseUrl)
-	requestVerb, requestDestination := "POST", url
+	requestVerb, requestDestination := "POST", "/requests"
 	messageBody := service.getMessageBody()
-	messageBodyString := string(service.getMessageBody())
+	messageBodyString := string(messageBody)
 	date := "2021-04-20T15:00:00Z"
 
 	validEncodedCertificate, err := getValidEncodedCertificate()
@@ -47,7 +47,7 @@ func (service *requestService) ExecuteRequest() {
 
 	authenticationParameters, err := getRequestAuthenticationParameters(messageBodyString, requestVerb, requestDestination, date, validEncodedCertificate)
 
-	req, err := http.NewRequest(requestVerb, requestDestination, bytes.NewBuffer(messageBody))
+	req, err := http.NewRequest(requestVerb, url, bytes.NewBuffer(messageBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-DIP-Signature", authenticationParameters.Signature)
 	req.Header.Set("X-DIP-Signature-Date", authenticationParameters.Date)
@@ -65,7 +65,7 @@ func (service *requestService) ExecuteRequest() {
 	defer resp.Body.Close()
 
 	// Read and print the response
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response:", err)
 		return
@@ -79,16 +79,20 @@ func (service *requestService) getMessageBody() []byte {
 
 	switch service.request.RequestType {
 	case domain.BP008:
-		fileName = "change_of_supplier.json"
+		fileName = "requests/change_of_supplier.json"
 	}
 
-	fileNameBytes, _ := os.ReadFile(fileName)
+	fileNameBytes, err := os.ReadFile(fileName)
+
+	if err != nil {
+		fmt.Println("Error loading request file:", err)
+	}
 
 	return fileNameBytes
 }
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
-	keyFile, err := os.ReadFile("testcerts/dip/dip_rsa_privatekey_pkcs1.pem")
+	keyFile, err := os.ReadFile("authentication/testcerts/dip/valid/dip_rsa_privatekey_pkcs1.pem")
 
 	if err != nil {
 		return nil, err
@@ -154,7 +158,7 @@ func getRequestAuthenticationParameters(messageBody, requestVerb, requestDestina
 }
 
 func getValidEncodedCertificate() (string, error) {
-	publicKey, err := os.ReadFile("certs/dip_cert.crt")
+	publicKey, err := os.ReadFile("authentication/testcerts/dip/valid/dip_cert.crt")
 
 	if err != nil {
 		return "", err
@@ -165,7 +169,7 @@ func getValidEncodedCertificate() (string, error) {
 }
 
 func getInvalidEncodedCertificate() (string, error) {
-	publicKey, err := os.ReadFile("certs/dip_invalid_cert.crt")
+	publicKey, err := os.ReadFile("authentication/testcerts/dip/invalid/dip_invalid_cert.crt")
 
 	if err != nil {
 		return "", err
