@@ -32,7 +32,7 @@ func NewService(request *domain.Request) *requestService {
 	return &requestService{request: request}
 }
 
-func (service *requestService) ExecuteRequest() {
+func (service *requestService) ExecuteRequest() string {
 	url := fmt.Sprintf("%s/requests", service.request.BaseUrl)
 	requestVerb, requestDestination := "POST", "/requests"
 	messageBody := service.getMessageBody()
@@ -42,12 +42,13 @@ func (service *requestService) ExecuteRequest() {
 	validEncodedCertificate, err := getValidEncodedCertificate()
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		return "Error:" + err.Error()
 	}
 
 	authenticationParameters, err := getRequestAuthenticationParameters(messageBodyString, requestVerb, requestDestination, date, validEncodedCertificate)
 
 	req, err := http.NewRequest(requestVerb, url, bytes.NewBuffer(messageBody))
+	req.ContentLength = int64(len(messageBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-DIP-Signature", authenticationParameters.Signature)
 	req.Header.Set("X-DIP-Signature-Date", authenticationParameters.Date)
@@ -58,20 +59,22 @@ func (service *requestService) ExecuteRequest() {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return "Error:" + err.Error()
 	}
 
 	defer resp.Body.Close()
 
+	if resp.Status != "200 OK" {
+		return resp.Status
+	}
+
 	// Read and print the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading response:", err)
-		return
+		return "Error reading response:" + err.Error()
 	}
 
-	fmt.Println("Response:", string(body))
+	return resp.Status + " - " + string(body)
 }
 
 func (service *requestService) getMessageBody() []byte {
