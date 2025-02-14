@@ -15,6 +15,7 @@ import (
 	"os"
 	"ssesuk/mhhs/simulator/domain"
 	"strings"
+	"time"
 )
 
 type authenticationParameters struct {
@@ -37,15 +38,17 @@ func (service *requestService) ExecuteRequest() string {
 	requestVerb, requestDestination := "POST", "/requests"
 	messageBody := service.getMessageBody()
 	messageBodyString := string(messageBody)
-	date := "2021-04-20T15:00:00Z"
+	currentTime := time.Now()
+	date := currentTime.UTC().Format("YYYY-MM-DDThh:mm:ssZ")
+	//date := "2021-04-20T15:00:00Z"
 
-	validEncodedCertificate, err := getValidEncodedCertificate()
+	validEncodedCertificate, err := service.getEncodedCertificate()
 
 	if err != nil {
 		return "Error:" + err.Error()
 	}
 
-	authenticationParameters, err := getRequestAuthenticationParameters(messageBodyString, requestVerb, requestDestination, date, validEncodedCertificate)
+	authenticationParameters, err := service.getRequestAuthenticationParameters(messageBodyString, requestVerb, requestDestination, date, validEncodedCertificate)
 
 	req, err := http.NewRequest(requestVerb, url, bytes.NewBuffer(messageBody))
 	req.ContentLength = int64(len(messageBody))
@@ -80,9 +83,9 @@ func (service *requestService) ExecuteRequest() string {
 func (service *requestService) getMessageBody() []byte {
 	var fileName string
 
-	switch service.request.RequestType {
-	case domain.BP008:
-		fileName = "requests/change_of_supplier.json"
+	switch service.request.InterfaceType {
+	case domain.IF033:
+		fileName = "requests/if-033.json"
 	}
 
 	fileNameBytes, err := os.ReadFile(fileName)
@@ -94,8 +97,8 @@ func (service *requestService) getMessageBody() []byte {
 	return fileNameBytes
 }
 
-func getPrivateKey() (*rsa.PrivateKey, error) {
-	keyFile, err := os.ReadFile("authentication/testcerts/dip/valid/dip_rsa_privatekey_pkcs1.pem")
+func (service *requestService) getPrivateKey() (*rsa.PrivateKey, error) {
+	keyFile, err := os.ReadFile(service.request.PrivateKeyPath)
 
 	if err != nil {
 		return nil, err
@@ -116,7 +119,7 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-func getRequestAuthenticationParameters(messageBody, requestVerb, requestDestination, date, encodedCertificate string) (*authenticationParameters, error) {
+func (service *requestService) getRequestAuthenticationParameters(messageBody, requestVerb, requestDestination, date, encodedCertificate string) (*authenticationParameters, error) {
 	messageHash := sha256.New()
 	messageHash.Write([]byte(messageBody))
 	messageHashSum := messageHash.Sum(nil)
@@ -136,7 +139,7 @@ func getRequestAuthenticationParameters(messageBody, requestVerb, requestDestina
 	hashedSignature.Write([]byte(signatureString))
 	hashedSignatureSum := hashedSignature.Sum(nil)
 
-	privateKey, err := getPrivateKey()
+	privateKey, err := service.getPrivateKey()
 
 	if err != nil {
 		return nil, err
@@ -160,19 +163,8 @@ func getRequestAuthenticationParameters(messageBody, requestVerb, requestDestina
 	return &authenticationParameters, nil
 }
 
-func getValidEncodedCertificate() (string, error) {
-	publicKey, err := os.ReadFile("authentication/testcerts/dip/valid/dip_cert.crt")
-
-	if err != nil {
-		return "", err
-	}
-
-	encodedCertificate := base64.StdEncoding.EncodeToString(publicKey)
-	return encodedCertificate, nil
-}
-
-func getInvalidEncodedCertificate() (string, error) {
-	publicKey, err := os.ReadFile("authentication/testcerts/dip/invalid/dip_invalid_cert.crt")
+func (service *requestService) getEncodedCertificate() (string, error) {
+	publicKey, err := os.ReadFile(service.request.CertPath)
 
 	if err != nil {
 		return "", err

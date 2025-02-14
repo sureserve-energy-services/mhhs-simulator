@@ -19,31 +19,48 @@ func main() {
 	var url string
 	flag.StringVar(&url, "url", "", "URL to root of the endpoint.")
 
-	var scenarios string
-	flag.StringVar(&scenarios, "scenarios", "", "List of comma seperated testing scenarios. Example BP008,BP009")
+	var privateKeyPath string
+	flag.StringVar(&privateKeyPath, "privateKeyPath", "", "Path to the private key file for signature signing.")
+
+	var certPath string
+	flag.StringVar(&certPath, "certPath", "", "Path to the digital certificate file.")
+
+	var interfaces string
+	flag.StringVar(&interfaces, "interfaces", "", "List of comma seperated interfaces. Example IF033,IF034 etc")
 	flag.Parse()
 
-	scenarioList := strings.Split(scenarios, ",")
+	scenarioList := strings.Split(interfaces, ",")
 
-	fmt.Println("Executing scenarios...")
+	fmt.Println("Testing interfaces...")
 
 	for _, scenario := range scenarioList {
 		fmt.Println("-----------------------------------------------------------")
 		fmt.Println(scenario)
-		request := domain.Request{BaseUrl: url, AuthOnly: authOnly, RequestType: getRequestTypeFromScenario(scenario)}
+
+		request := domain.Request{
+			BaseUrl:        url,
+			AuthOnly:       authOnly,
+			InterfaceType:  getRequestTypeFromScenario(scenario),
+			PrivateKeyPath: privateKeyPath}
+
 		requestService := services.NewService(&request)
 		response := requestService.ExecuteRequest()
+
 		fmt.Println("Response:" + response)
 		fmt.Println("-----------------------------------------------------------")
 	}
 }
 
-func getRequestTypeFromScenario(scenario string) domain.RequestType {
+func getRequestTypeFromScenario(scenario string) domain.InterfaceType {
 	switch strings.ToLower(scenario) {
-	case "bp008":
-		return domain.BP008
+	case "if033":
+		return domain.IF033
+	case "if034":
+		return domain.IF033
+	case "if035":
+		return domain.IF033
 	default:
-		return domain.BP008
+		return domain.IF033
 	}
 }
 

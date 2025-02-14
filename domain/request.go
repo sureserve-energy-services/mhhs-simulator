@@ -1,7 +1,9 @@
 package domain
 
 type Request struct {
-	BaseUrl     string
-	AuthOnly    bool
-	RequestType RequestType
+	BaseUrl        string
+	AuthOnly       bool
+	InterfaceType  InterfaceType
+	PrivateKeyPath string
+	CertPath       string
 }
