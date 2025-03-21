@@ -41,7 +41,8 @@ func main() {
 			BaseUrl:        url,
 			AuthOnly:       authOnly,
 			InterfaceType:  getRequestTypeFromScenario(scenario),
-			PrivateKeyPath: privateKeyPath}
+			PrivateKeyPath: privateKeyPath,
+			CertPath:       certPath}
 
 		requestService := services.NewService(&request)
 		response := requestService.ExecuteRequest()
