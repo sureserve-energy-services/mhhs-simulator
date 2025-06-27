@@ -1,2 +1,5 @@
 launch.json
 .env.development
+*.cer
+*.pem
+*.pfx
